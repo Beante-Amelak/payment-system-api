@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- =========================================================
+         Payment Gateway Subflow
+         Transforms request and invokes external payment gateway
+         ========================================================= -->
+    <sub-flow name="payment-gateway-subflow" 
+              doc:name="Payment Gateway Subflow">
+        
+        <!-- Transform to Gateway Request Format -->
+        <ee:transform doc:name="Transform to Gateway Request">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var request = vars.originalRequest
+---
+{
+    transactionId: uuid(),
+    merchantReference: vars.correlationId,
+    policyReference: request.policyId,
+    transaction: {
+        amount: {
+            value: request.amount,
+            currency: upper(request.currency)
+        },
+        paymentMethod: {
+            methodType: request.paymentMethod.'type',
+            tokenReference: request.paymentMethod.token default null
+        },
+        transactionType: "AUTHORIZATION"
+    },
+    metadata: {
+        source: "LULA_INSURANCE_SYSTEM_API",
+        timestamp: now() as String {format: "yyyy-MM-dd'T'HH:mm:ss.SSSZ"}
+    }
+}]]></ee:set-payload>
+            </ee:message>
+            <ee:variables>
+                <ee:set-variable variableName="gatewayRequest"><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        
+        <!-- Log Gateway Request (without sensitive data) -->
+        <logger level="INFO" 
+                doc:name="Log Gateway Request"
+                message="#['Calling Payment Gateway - CorrelationId: ' ++ (vars.correlationId default 'N/A') ++ ' - Amount: ' ++ ((vars.originalRequest.amount default 0) as String) ++ ' ' ++ (vars.originalRequest.currency default 'N/A')]"/>
+        
+        <!-- Call Payment Gateway -->
+        <http:request method="POST" 
+                      config-ref="HTTP_Request_Payment_Gateway_Config" 
+                      path="${payment.gateway.basePath}/authorize" 
+                      doc:name="Payment Gateway Request">
+            <http:body><![CDATA[#[payload]]]></http:body>
+            <http:headers><![CDATA[#[{
+    "Content-Type": "application/json",
+    "X-Correlation-Id": vars.correlationId,
+    "X-API-Key": p('secure::payment.gateway.apiKey') default "",
+    "X-Merchant-Id": p('secure::payment.gateway.merchantId') default ""
+}]]]></http:headers>
+        </http:request>
+        
+        <!-- Store Gateway Response -->
+        <set-variable variableName="gatewayResponse" 
+                      value="#[payload]" 
+                      doc:name="Store Gateway Response"/>
+        
+        <!-- Log Gateway Response -->
+        <logger level="INFO" 
+                doc:name="Log Gateway Response"
+                message="#['Payment Gateway Response - CorrelationId: ' ++ (vars.correlationId default 'N/A') ++ ' - Status: ' ++ (payload.status default 'UNKNOWN')]"/>
+        
+        <!-- Check for Gateway Error Response -->
+        <choice doc:name="Check Gateway Response">
+            <when expression="#[(payload.status default 'UNKNOWN') == 'DECLINED']">
+                <raise-error type="APP:PAYMENT_DECLINED" 
+                             description="#['Payment declined: ' ++ (payload.declineReason default 'Unknown reason')]" 
+                             doc:name="Raise Payment Declined Error"/>
+            </when>
+            <when expression="#[(payload.status default 'UNKNOWN') == 'ERROR']">
+                <raise-error type="APP:GATEWAY_ERROR" 
+                             description="#['Gateway error: ' ++ (payload.errorMessage default 'Unknown error')]" 
+                             doc:name="Raise Gateway Error"/>
+            </when>
+        </choice>
+        
+    </sub-flow>
+
+</mule>

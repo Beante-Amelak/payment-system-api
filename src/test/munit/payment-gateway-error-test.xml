@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+      xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <munit:config name="payment-gateway-error-test.xml"/>
+
+    <!-- =========================================================
+         Test: Gateway Connectivity Error
+         Scenario: Gateway connectivity failure returns 500 error
+         ========================================================= -->
+    <munit:test name="payment-gateway-connectivity-error-test" 
+                description="Test error handling when payment gateway is unreachable"
+                expectedErrorType="HTTP:CONNECTIVITY"
+                doc:name="Gateway Connectivity Error Test">
+        
+        <munit:behavior>
+            <!-- Mock Gateway Connectivity Error -->
+            <munit-tools:mock-when processor="http:request" doc:name="Mock Gateway Connectivity Error">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Payment Gateway Request"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:error typeId="HTTP:CONNECTIVITY"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        
+        <munit:execution>
+            <munit:set-event doc:name="Set Valid Payment Request">
+                <munit:payload value="#[MunitTools::getResourceAsString('payment-request-success.json')]" mediaType="application/json" encoding="UTF-8"/>
+                <munit:attributes value="#[{
+                    headers: {
+                        'client_id': 'test-client-id',
+                        'client_secret': 'test-client-secret',
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST',
+                    requestPath: '/api/v1/payments',
+                    requestUri: '/api/v1/payments'
+                }]"/>
+            </munit:set-event>
+            
+            <flow-ref name="post:\payments:application\json:Payment_System_API_Config" doc:name="Call Payment Flow"/>
+        </munit:execution>
+    </munit:test>
+
+    <!-- =========================================================
+         Test: Gateway Timeout Error
+         Scenario: Gateway timeout returns 500 error
+         ========================================================= -->
+    <munit:test name="payment-gateway-timeout-error-test" 
+                description="Test error handling when payment gateway times out"
+                expectedErrorType="HTTP:TIMEOUT"
+                doc:name="Gateway Timeout Error Test">
+        
+        <munit:behavior>
+            <!-- Mock Gateway Timeout Error -->
+            <munit-tools:mock-when processor="http:request" doc:name="Mock Gateway Timeout">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Payment Gateway Request"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:error typeId="HTTP:TIMEOUT"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        
+        <munit:execution>
+            <munit:set-event doc:name="Set Valid Payment Request">
+                <munit:payload value="#[MunitTools::getResourceAsString('payment-request-success.json')]" mediaType="application/json" encoding="UTF-8"/>
+                <munit:attributes value="#[{
+                    headers: {
+                        'client_id': 'test-client-id',
+                        'client_secret': 'test-client-secret',
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST',
+                    requestPath: '/api/v1/payments',
+                    requestUri: '/api/v1/payments'
+                }]"/>
+            </munit:set-event>
+            
+            <flow-ref name="post:\payments:application\json:Payment_System_API_Config" doc:name="Call Payment Flow"/>
+        </munit:execution>
+    </munit:test>
+
+    <!-- =========================================================
+         Test: Payment Declined by Gateway
+         Scenario: Gateway returns declined status
+         ========================================================= -->
+    <munit:test name="payment-declined-test" 
+                description="Test handling when payment is declined by gateway"
+                expectedErrorType="APP:PAYMENT_DECLINED"
+                doc:name="Payment Declined Test">
+        
+        <munit:behavior>
+            <!-- Mock Gateway Declined Response -->
+            <munit-tools:mock-when processor="http:request" doc:name="Mock Gateway Declined">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Payment Gateway Request"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('gateway-response-declined.json')]" mediaType="application/json" encoding="UTF-8"/>
+                    <munit-tools:attributes value="#[{statusCode: 200}]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        
+        <munit:execution>
+            <munit:set-event doc:name="Set Valid Payment Request">
+                <munit:payload value="#[MunitTools::getResourceAsString('payment-request-success.json')]" mediaType="application/json" encoding="UTF-8"/>
+                <munit:attributes value="#[{
+                    headers: {
+                        'client_id': 'test-client-id',
+                        'client_secret': 'test-client-secret',
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST',
+                    requestPath: '/api/v1/payments',
+                    requestUri: '/api/v1/payments'
+                }]"/>
+            </munit:set-event>
+            
+            <flow-ref name="post:\payments:application\json:Payment_System_API_Config" doc:name="Call Payment Flow"/>
+        </munit:execution>
+    </munit:test>
+
+    <!-- =========================================================
+         Test: Gateway Error Response
+         Scenario: Gateway returns error status
+         ========================================================= -->
+    <munit:test name="payment-gateway-error-response-test" 
+                description="Test handling when gateway returns error response"
+                expectedErrorType="APP:GATEWAY_ERROR"
+                doc:name="Gateway Error Response Test">
+        
+        <munit:behavior>
+            <!-- Mock Gateway Error Response -->
+            <munit-tools:mock-when processor="http:request" doc:name="Mock Gateway Error Response">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Payment Gateway Request"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value='#[output application/json --- {
+                        "transactionId": "TXN-ERROR-001",
+                        "status": "ERROR",
+                        "errorMessage": "Gateway internal error",
+                        "timestamp": now() as String
+                    }]' mediaType="application/json" encoding="UTF-8"/>
+                    <munit-tools:attributes value="#[{statusCode: 500}]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        
+        <munit:execution>
+            <munit:set-event doc:name="Set Valid Payment Request">
+                <munit:payload value="#[MunitTools::getResourceAsString('payment-request-success.json')]" mediaType="application/json" encoding="UTF-8"/>
+                <munit:attributes value="#[{
+                    headers: {
+                        'client_id': 'test-client-id',
+                        'client_secret': 'test-client-secret',
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST',
+                    requestPath: '/api/v1/payments',
+                    requestUri: '/api/v1/payments'
+                }]"/>
+            </munit:set-event>
+            
+            <flow-ref name="post:\payments:application\json:Payment_System_API_Config" doc:name="Call Payment Flow"/>
+        </munit:execution>
+    </munit:test>
+
+</mule>

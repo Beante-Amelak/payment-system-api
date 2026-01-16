@@ -1,0 +1,7 @@
+{
+    "transactionId": "TXN-87654321",
+    "status": "DECLINED",
+    "declineReason": "Insufficient funds",
+    "message": "Transaction declined",
+    "timestamp": "2024-01-15T10:30:00.000Z"
+}

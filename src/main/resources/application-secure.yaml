@@ -1,0 +1,23 @@
+# =========================================================
+# Lula Insurance - Payment System API Secure Configuration
+# Sensitive configuration properties - ENCRYPTED
+# =========================================================
+# Note: Values below are placeholders. In production,
+# encrypt using: secure-properties-tool with AES/CBC
+# Example: java -cp secure-properties-tool.jar
+#   com.mulesoft.tools.SecurePropertiesTool string encrypt
+#   AES CBC <encryption-key> <value-to-encrypt>
+# =========================================================
+
+# Payment Gateway Credentials (encrypted placeholders)
+payment:
+  gateway:
+    apiKey: "![encryptedApiKeyValue]"
+    apiSecret: "![encryptedApiSecretValue]"
+    merchantId: "![encryptedMerchantIdValue]"
+
+# Client ID Enforcement (expected credentials)
+client:
+  credentials:
+    id: "![encryptedClientIdValue]"
+    secret: "![encryptedClientSecretValue]"

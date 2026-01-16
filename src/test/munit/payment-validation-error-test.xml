@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+      xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <munit:config name="payment-validation-error-test.xml"/>
+
+    <!-- =========================================================
+         Test: Missing PolicyId Validation Error
+         Scenario: Request without policyId returns 400 validation error
+         ========================================================= -->
+    <munit:test name="payment-missing-policyid-test" 
+                description="Test validation error when policyId is missing"
+                expectedErrorType="APP:VALIDATION_ERROR"
+                doc:name="Missing PolicyId Test">
+        
+        <munit:execution>
+            <munit:set-event doc:name="Set Request Missing PolicyId">
+                <munit:payload value='#[output application/json --- {
+                    "policyId": "",
+                    "amount": 100.00,
+                    "currency": "USD",
+                    "paymentMethod": {
+                        "type": "CARD",
+                        "token": "tok_abc123"
+                    }
+                }]' mediaType="application/json" encoding="UTF-8"/>
+                <munit:attributes value="#[{
+                    headers: {
+                        'client_id': 'test-client-id',
+                        'client_secret': 'test-client-secret',
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST',
+                    requestPath: '/api/v1/payments',
+                    requestUri: '/api/v1/payments'
+                }]"/>
+            </munit:set-event>
+            
+            <flow-ref name="post:\payments:application\json:Payment_System_API_Config" doc:name="Call Payment Flow"/>
+        </munit:execution>
+        
+        <!-- Validation is implicit through expectedErrorType -->
+    </munit:test>
+
+    <!-- =========================================================
+         Test: Invalid Amount Validation Error
+         Scenario: Request with negative amount returns validation error
+         ========================================================= -->
+    <munit:test name="payment-invalid-amount-test" 
+                description="Test validation error when amount is negative"
+                expectedErrorType="APP:VALIDATION_ERROR"
+                doc:name="Invalid Amount Test">
+        
+        <munit:execution>
+            <munit:set-event doc:name="Set Request Invalid Amount">
+                <munit:payload value='#[output application/json --- {
+                    "policyId": "POL-998877",
+                    "amount": -50.00,
+                    "currency": "USD",
+                    "paymentMethod": {
+                        "type": "CARD",
+                        "token": "tok_abc123"
+                    }
+                }]' mediaType="application/json" encoding="UTF-8"/>
+                <munit:attributes value="#[{
+                    headers: {
+                        'client_id': 'test-client-id',
+                        'client_secret': 'test-client-secret',
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST',
+                    requestPath: '/api/v1/payments',
+                    requestUri: '/api/v1/payments'
+                }]"/>
+            </munit:set-event>
+            
+            <flow-ref name="post:\payments:application\json:Payment_System_API_Config" doc:name="Call Payment Flow"/>
+        </munit:execution>
+    </munit:test>
+
+    <!-- =========================================================
+         Test: Missing Payment Method Validation Error
+         Scenario: Request without paymentMethod returns validation error
+         ========================================================= -->
+    <munit:test name="payment-missing-payment-method-test" 
+                description="Test validation error when paymentMethod is missing"
+                expectedErrorType="APP:VALIDATION_ERROR"
+                doc:name="Missing Payment Method Test">
+        
+        <munit:execution>
+            <munit:set-event doc:name="Set Request Missing PaymentMethod">
+                <munit:payload value='#[output application/json --- {
+                    "policyId": "POL-998877",
+                    "amount": 100.00,
+                    "currency": "USD"
+                }]' mediaType="application/json" encoding="UTF-8"/>
+                <munit:attributes value="#[{
+                    headers: {
+                        'client_id': 'test-client-id',
+                        'client_secret': 'test-client-secret',
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST',
+                    requestPath: '/api/v1/payments',
+                    requestUri: '/api/v1/payments'
+                }]"/>
+            </munit:set-event>
+            
+            <flow-ref name="post:\payments:application\json:Payment_System_API_Config" doc:name="Call Payment Flow"/>
+        </munit:execution>
+    </munit:test>
+
+    <!-- =========================================================
+         Test: Invalid Payment Method Type Validation Error
+         Scenario: Request with invalid paymentMethod type returns validation error
+         ========================================================= -->
+    <munit:test name="payment-invalid-method-type-test" 
+                description="Test validation error when paymentMethod.type is invalid"
+                expectedErrorType="APP:VALIDATION_ERROR"
+                doc:name="Invalid Payment Method Type Test">
+        
+        <munit:execution>
+            <munit:set-event doc:name="Set Request Invalid Method Type">
+                <munit:payload value='#[output application/json --- {
+                    "policyId": "POL-998877",
+                    "amount": 100.00,
+                    "currency": "USD",
+                    "paymentMethod": {
+                        "type": "BITCOIN",
+                        "token": "tok_abc123"
+                    }
+                }]' mediaType="application/json" encoding="UTF-8"/>
+                <munit:attributes value="#[{
+                    headers: {
+                        'client_id': 'test-client-id',
+                        'client_secret': 'test-client-secret',
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST',
+                    requestPath: '/api/v1/payments',
+                    requestUri: '/api/v1/payments'
+                }]"/>
+            </munit:set-event>
+            
+            <flow-ref name="post:\payments:application\json:Payment_System_API_Config" doc:name="Call Payment Flow"/>
+        </munit:execution>
+    </munit:test>
+
+    <!-- =========================================================
+         Test: Unauthorized - Missing Client Credentials
+         Scenario: Request without client credentials returns 401
+         ========================================================= -->
+    <munit:test name="payment-missing-credentials-test" 
+                description="Test unauthorized error when client credentials are missing"
+                expectedErrorType="APP:UNAUTHORIZED"
+                doc:name="Missing Client Credentials Test">
+        
+        <munit:execution>
+            <munit:set-event doc:name="Set Request Missing Credentials">
+                <munit:payload value='#[output application/json --- {
+                    "policyId": "POL-998877",
+                    "amount": 100.00,
+                    "currency": "USD",
+                    "paymentMethod": {
+                        "type": "CARD",
+                        "token": "tok_abc123"
+                    }
+                }]' mediaType="application/json" encoding="UTF-8"/>
+                <munit:attributes value="#[{
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST',
+                    requestPath: '/api/v1/payments',
+                    requestUri: '/api/v1/payments'
+                }]"/>
+            </munit:set-event>
+            
+            <flow-ref name="post:\payments:application\json:Payment_System_API_Config" doc:name="Call Payment Flow"/>
+        </munit:execution>
+    </munit:test>
+
+</mule>

@@ -1,0 +1,9 @@
+{
+    "policyId": "POL-998877",
+    "amount": 120.50,
+    "currency": "USD",
+    "paymentMethod": {
+        "type": "CARD",
+        "token": "tok_abc123"
+    }
+}

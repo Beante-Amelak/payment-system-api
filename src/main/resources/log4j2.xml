@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Configuration status="WARN">
+
+    <!-- =========================================================
+         Lula Insurance - Payment System API Logging Configuration
+         Structured JSON logging for production observability
+         ========================================================= -->
+
+    <Appenders>
+        <!-- Rolling File Appender for persistent logs -->
+        <RollingFile name="file" 
+                     fileName="${sys:mule.home}${sys:file.separator}logs${sys:file.separator}payment-system-api.log"
+                     filePattern="${sys:mule.home}${sys:file.separator}logs${sys:file.separator}payment-system-api-%d{yyyy-MM-dd}-%i.log">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] [correlationId: %X{correlationId}] %-5p %c{1}: %m%n"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="50 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+        
+        <!-- Console Appender for development/debugging -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] [%X{correlationId}] %-5p %c{1}: %m%n"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <!-- HTTP Service Logging - Reduce noise -->
+        <AsyncLogger name="org.mule.service.http" level="WARN"/>
+        <AsyncLogger name="org.mule.extension.http" level="WARN"/>
+        
+        <!-- APIKit Logging -->
+        <AsyncLogger name="org.mule.module.apikit" level="INFO"/>
+        
+        <!-- Mule Core Logger -->
+        <AsyncLogger name="org.mule.runtime.core.internal.processor.LoggerMessageProcessor" level="INFO"/>
+        
+        <!-- Application Logging -->
+        <AsyncLogger name="com.lulainsurance.payment" level="INFO"/>
+        
+        <!-- Root Logger -->
+        <AsyncRoot level="INFO">
+            <AppenderRef ref="file"/>
+            <AppenderRef ref="Console"/>
+        </AsyncRoot>
+    </Loggers>
+
+</Configuration>

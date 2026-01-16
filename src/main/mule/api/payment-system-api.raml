@@ -1,0 +1,143 @@
+#%RAML 1.0
+title: Lula Insurance - Payment System API
+version: v1
+baseUri: https://api.lulainsurance.com/system/payments/{version}
+mediaType: application/json
+protocols: [ HTTPS ]
+
+description: |
+  System API responsible for collecting initial insurance premium,
+  authorizing payments, and linking payments to policies.
+  This API is called by MuleSoft Process APIs only.
+
+# =========================================================
+# Security Scheme: Client ID & Client Secret
+# =========================================================
+securitySchemes:
+  client_id_enforcement:
+    type: x-client-id-enforcement
+    description: Client ID and Client Secret enforcement
+    describedBy:
+      headers:
+        client_id:
+          type: string
+          required: true
+          description: MuleSoft client ID
+        client_secret:
+          type: string
+          required: true
+          description: MuleSoft client secret
+      responses:
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+
+securedBy:
+  - client_id_enforcement
+
+# =========================================================
+# Types
+# =========================================================
+types:
+
+  PaymentRequest:
+    type: object
+    properties:
+      policyId:
+        type: string
+        required: true
+        description: Policy identifier to associate payment
+      amount:
+        type: number
+        required: true
+      currency:
+        type: string
+        required: true
+      paymentMethod:
+        type: object
+        required: true
+        properties:
+          type:
+            type: string
+            required: true
+            enum: [ CARD, ACH ]
+          token?:
+            type: string
+            description: Tokenized payment method reference
+
+  PaymentResponse:
+    type: object
+    properties:
+      paymentId:
+        type: string
+      policyId:
+        type: string
+      status:
+        type: string
+        enum: [ AUTHORIZED, DECLINED ]
+      authorizationCode:
+        type: string
+      message:
+        type: string
+
+  ErrorResponse:
+    type: object
+    properties:
+      errorCode:
+        type: string
+      errorMessage:
+        type: string
+      correlationId:
+        type: string
+
+# =========================================================
+# Resources
+# =========================================================
+/payments:
+  post:
+    description: |
+      Collects initial premium payment, authorizes payment,
+      and links it to a policy.
+    body:
+      application/json:
+        type: PaymentRequest
+        example:
+          {
+            "policyId": "POL-998877",
+            "amount": 120.50,
+            "currency": "USD",
+            "paymentMethod": {
+              "type": "CARD",
+              "token": "tok_abc123"
+            }
+          }
+    responses:
+      201:
+        description: Payment authorized
+        body:
+          application/json:
+            type: PaymentResponse
+            example:
+              {
+                "paymentId": "PAY-123456",
+                "policyId": "POL-998877",
+                "status": "AUTHORIZED",
+                "authorizationCode": "AUTH-78910",
+                "message": "Payment authorized successfully"
+              }
+      400:
+        description: Invalid request
+        body:
+          application/json:
+            type: ErrorResponse
+      401:
+        description: Unauthorized
+        body:
+          application/json:
+            type: ErrorResponse
+      500:
+        description: Payment gateway error
+        body:
+          application/json:
+            type: ErrorResponse

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- =========================================================
+         Response Mapping Subflow
+         Normalizes gateway response to PaymentResponse format
+         ========================================================= -->
+    <sub-flow name="response-mapping-subflow" 
+              doc:name="Response Mapping Subflow">
+        
+        <!-- Transform Gateway Response to API Response -->
+        <ee:transform doc:name="Map to Payment Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var gatewayResponse = vars.gatewayResponse
+var originalRequest = vars.originalRequest
+---
+{
+    paymentId: gatewayResponse.transactionId default ("PAY-" ++ uuid()[0 to 7]),
+    policyId: originalRequest.policyId,
+    status: if (upper(gatewayResponse.status default "") == "AUTHORIZED" or 
+               upper(gatewayResponse.status default "") == "APPROVED" or
+               upper(gatewayResponse.status default "") == "SUCCESS")
+            "AUTHORIZED"
+            else if (upper(gatewayResponse.status default "") == "DECLINED")
+            "DECLINED"
+            else
+            gatewayResponse.status default "AUTHORIZED",
+    authorizationCode: gatewayResponse.authorizationCode default 
+                       gatewayResponse.authCode default 
+                       ("AUTH-" ++ uuid()[0 to 7]),
+    message: if (upper(gatewayResponse.status default "") == "AUTHORIZED" or
+                upper(gatewayResponse.status default "") == "APPROVED" or
+                upper(gatewayResponse.status default "") == "SUCCESS")
+             "Payment authorized successfully"
+             else if (upper(gatewayResponse.status default "") == "DECLINED")
+             "Payment was declined"
+             else
+             gatewayResponse.message default "Payment processed"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- Log Successful Response -->
+        <logger level="INFO" 
+                doc:name="Log Payment Response"
+                message="#['Payment processed successfully - CorrelationId: ' ++ (vars.correlationId default 'N/A') ++ ' - PaymentId: ' ++ (payload.paymentId default 'N/A') ++ ' - Status: ' ++ (payload.status default 'N/A')]"/>
+        
+    </sub-flow>
+
+</mule>

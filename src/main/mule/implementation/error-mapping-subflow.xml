@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- =========================================================
+         Error Mapping Subflow
+         Converts Mule and gateway errors into ErrorResponse format
+         ========================================================= -->
+    <sub-flow name="error-mapping-subflow" 
+              doc:name="Error Mapping Subflow">
+        
+        <!-- Transform Error to API Error Response -->
+        <ee:transform doc:name="Map Error to ErrorResponse">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var errorType = error.errorType.identifier default "UNKNOWN"
+var errorDesc = error.description default "An unexpected error occurred"
+---
+{
+    errorCode: if (errorType contains "VALIDATION") "VALIDATION_ERROR"
+               else if (errorType contains "UNAUTHORIZED" or errorType contains "AUTH") "UNAUTHORIZED"
+               else if (errorType contains "CONNECTIVITY" or errorType contains "TIMEOUT") "GATEWAY_ERROR"
+               else if (errorType contains "DECLINED") "PAYMENT_DECLINED"
+               else if (errorType contains "BAD_REQUEST") "BAD_REQUEST"
+               else "INTERNAL_ERROR",
+    errorMessage: if (errorType contains "INTERNAL" or errorType == "UNKNOWN")
+                  "An unexpected error occurred. Please contact support."
+                  else
+                  errorDesc,
+    correlationId: vars.correlationId default correlationId
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+    </sub-flow>
+
+    <!-- =========================================================
+         Gateway Error Mapping Subflow
+         Specifically handles gateway error responses
+         ========================================================= -->
+    <sub-flow name="gateway-error-mapping-subflow" 
+              doc:name="Gateway Error Mapping Subflow">
+        
+        <ee:transform doc:name="Map Gateway Error">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var gatewayError = payload default {}
+---
+{
+    errorCode: gatewayError.errorCode default "GATEWAY_ERROR",
+    errorMessage: gatewayError.message default gatewayError.errorMessage default "Payment gateway error",
+    correlationId: vars.correlationId default correlationId
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+    </sub-flow>
+
+</mule>

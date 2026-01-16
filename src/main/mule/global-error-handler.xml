@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- =========================================================
+         Global Error Handler - Centralized Error Handling
+         ========================================================= -->
+    <error-handler name="Global_Error_Handler" doc:name="Global Error Handler">
+
+        <!-- Validation Errors - HTTP 400 -->
+        <on-error-propagate type="APIKIT:BAD_REQUEST, APP:VALIDATION_ERROR" 
+                            doc:name="On Error Propagate - Validation">
+            <logger level="ERROR" 
+                    doc:name="Log Validation Error"
+                    message="#['Validation Error - CorrelationId: ' ++ (vars.correlationId default correlationId) ++ ' - Error: ' ++ error.description]"/>
+            <ee:transform doc:name="Transform Validation Error Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: "VALIDATION_ERROR",
+    errorMessage: error.description default "Invalid request data",
+    correlationId: vars.correlationId default correlationId
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <!-- Authentication Errors - HTTP 401 -->
+        <on-error-propagate type="APP:UNAUTHORIZED" 
+                            doc:name="On Error Propagate - Auth">
+            <logger level="ERROR" 
+                    doc:name="Log Auth Error"
+                    message="#['Authentication Error - CorrelationId: ' ++ (vars.correlationId default correlationId) ++ ' - Error: ' ++ error.description]"/>
+            <ee:transform doc:name="Transform Auth Error Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: "UNAUTHORIZED",
+    errorMessage: "Invalid client credentials",
+    correlationId: vars.correlationId default correlationId
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus"><![CDATA[401]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <!-- Payment Gateway Errors - HTTP 500 -->
+        <on-error-propagate type="HTTP:CONNECTIVITY, HTTP:TIMEOUT, APP:GATEWAY_ERROR" 
+                            doc:name="On Error Propagate - Gateway">
+            <logger level="ERROR" 
+                    doc:name="Log Gateway Error"
+                    message="#['Gateway Error - CorrelationId: ' ++ (vars.correlationId default correlationId) ++ ' - Error: ' ++ error.description]"/>
+            <ee:transform doc:name="Transform Gateway Error Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: "GATEWAY_ERROR",
+    errorMessage: "Payment gateway unavailable. Please try again later.",
+    correlationId: vars.correlationId default correlationId
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus"><![CDATA[500]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <!-- Payment Declined - HTTP 422 -->
+        <on-error-propagate type="APP:PAYMENT_DECLINED" 
+                            doc:name="On Error Propagate - Declined">
+            <logger level="WARN" 
+                    doc:name="Log Payment Declined"
+                    message="#['Payment Declined - CorrelationId: ' ++ (vars.correlationId default correlationId) ++ ' - Error: ' ++ error.description]"/>
+            <ee:transform doc:name="Transform Declined Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: "PAYMENT_DECLINED",
+    errorMessage: error.description default "Payment was declined",
+    correlationId: vars.correlationId default correlationId
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus"><![CDATA[422]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <!-- Unknown/General Errors - HTTP 500 -->
+        <on-error-propagate type="ANY" 
+                            doc:name="On Error Propagate - Unknown">
+            <logger level="ERROR" 
+                    doc:name="Log Unknown Error"
+                    message="#['Unknown Error - CorrelationId: ' ++ (vars.correlationId default correlationId) ++ ' - Error Type: ' ++ (error.errorType.identifier default 'UNKNOWN') ++ ' - Error: ' ++ error.description]"/>
+            <ee:transform doc:name="Transform Unknown Error Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode: "INTERNAL_ERROR",
+    errorMessage: "An unexpected error occurred. Please contact support.",
+    correlationId: vars.correlationId default correlationId
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable variableName="httpStatus"><![CDATA[500]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+    </error-handler>
+
+</mule>

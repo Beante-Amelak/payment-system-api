@@ -1,0 +1,8 @@
+{
+    "policyId": "",
+    "amount": -50,
+    "currency": "USD",
+    "paymentMethod": {
+        "type": "INVALID"
+    }
+}

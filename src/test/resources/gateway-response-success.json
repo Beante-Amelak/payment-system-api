@@ -1,0 +1,7 @@
+{
+    "transactionId": "TXN-12345678",
+    "status": "AUTHORIZED",
+    "authorizationCode": "AUTH-78910",
+    "message": "Transaction approved",
+    "timestamp": "2024-01-15T10:30:00.000Z"
+}

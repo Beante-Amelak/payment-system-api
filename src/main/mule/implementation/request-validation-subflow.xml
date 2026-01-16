@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- =========================================================
+         Request Validation Subflow
+         Validates payment request fields and business rules
+         ========================================================= -->
+    <sub-flow name="request-validation-subflow" 
+              doc:name="Request Validation Subflow">
+        
+        <!-- Validate Request Structure -->
+        <ee:transform doc:name="Validate Request Fields">
+            <ee:variables>
+                <ee:set-variable variableName="validationErrors"><![CDATA[%dw 2.0
+output application/java
+var request = vars.originalRequest
+var paymentType = (request.paymentMethod.'type') default ""
+---
+[
+    // Required field validations
+    if (isEmpty(request.policyId)) "policyId is required" else null,
+    if (request.amount == null) "amount is required" else null,
+    if ((request.amount != null) and (request.amount <= 0)) "amount must be greater than 0" else null,
+    if (isEmpty(request.currency)) "currency is required" else null,
+    if (request.paymentMethod == null) "paymentMethod is required" else null,
+    if ((request.paymentMethod != null) and isEmpty(request.paymentMethod.'type')) "paymentMethod.type is required" else null,
+    if ((request.paymentMethod != null) and (paymentType != "CARD") and (paymentType != "ACH")) 
+        "paymentMethod.type must be CARD or ACH" else null,
+    // Currency validation
+    if ((not isEmpty(request.currency)) and (not (upper(request.currency) matches /^[A-Z]{3}$/))) 
+        "currency must be a valid 3-letter ISO code" else null
+] filter $ != null]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        
+        <!-- Check for Validation Errors -->
+        <choice doc:name="Check Validation Errors">
+            <when expression="#[sizeOf(vars.validationErrors) > 0]">
+                <logger level="WARN" 
+                        doc:name="Log Validation Errors"
+                        message="#['Validation failed - CorrelationId: ' ++ (vars.correlationId default 'N/A') ++ ' - Errors: ' ++ (vars.validationErrors joinBy ', ')]"/>
+                <raise-error type="APP:VALIDATION_ERROR" 
+                             description="#[vars.validationErrors joinBy '; ']" 
+                             doc:name="Raise Validation Error"/>
+            </when>
+        </choice>
+        
+        <!-- Log successful validation -->
+        <logger level="DEBUG" 
+                doc:name="Log Validation Success"
+                message="#['Request validation passed - CorrelationId: ' ++ (vars.correlationId default 'N/A') ++ ' - PolicyId: ' ++ (vars.originalRequest.policyId default 'N/A')]"/>
+        
+    </sub-flow>
+
+</mule>
